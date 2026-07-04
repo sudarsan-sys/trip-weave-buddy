@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as CreateTripRouteImport } from './routes/create-trip'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
 
 const CreateTripRoute = CreateTripRouteImport.update({
   id: '/create-trip',
@@ -22,31 +23,40 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JoinInviteCodeRoute = JoinInviteCodeRouteImport.update({
+  id: '/join/$inviteCode',
+  path: '/join/$inviteCode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create-trip': typeof CreateTripRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create-trip': typeof CreateTripRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/create-trip': typeof CreateTripRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create-trip'
+  fullPaths: '/' | '/create-trip' | '/join/$inviteCode'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create-trip'
-  id: '__root__' | '/' | '/create-trip'
+  to: '/' | '/create-trip' | '/join/$inviteCode'
+  id: '__root__' | '/' | '/create-trip' | '/join/$inviteCode'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreateTripRoute: typeof CreateTripRoute
+  JoinInviteCodeRoute: typeof JoinInviteCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/join/$inviteCode': {
+      id: '/join/$inviteCode'
+      path: '/join/$inviteCode'
+      fullPath: '/join/$inviteCode'
+      preLoaderRoute: typeof JoinInviteCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateTripRoute: CreateTripRoute,
+  JoinInviteCodeRoute: JoinInviteCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
