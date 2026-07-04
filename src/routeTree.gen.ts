@@ -9,38 +9,75 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CreateTripRouteImport } from './routes/create-trip'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TripTripIdRouteImport } from './routes/trip.$tripId'
+import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
 
+const CreateTripRoute = CreateTripRouteImport.update({
+  id: '/create-trip',
+  path: '/create-trip',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TripTripIdRoute = TripTripIdRouteImport.update({
+  id: '/trip/$tripId',
+  path: '/trip/$tripId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinInviteCodeRoute = JoinInviteCodeRouteImport.update({
+  id: '/join/$inviteCode',
+  path: '/join/$inviteCode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/create-trip': typeof CreateTripRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
+  '/trip/$tripId': typeof TripTripIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/create-trip': typeof CreateTripRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
+  '/trip/$tripId': typeof TripTripIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/create-trip': typeof CreateTripRoute
+  '/join/$inviteCode': typeof JoinInviteCodeRoute
+  '/trip/$tripId': typeof TripTripIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/create-trip' | '/join/$inviteCode' | '/trip/$tripId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/create-trip' | '/join/$inviteCode' | '/trip/$tripId'
+  id: '__root__' | '/' | '/create-trip' | '/join/$inviteCode' | '/trip/$tripId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreateTripRoute: typeof CreateTripRoute
+  JoinInviteCodeRoute: typeof JoinInviteCodeRoute
+  TripTripIdRoute: typeof TripTripIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/create-trip': {
+      id: '/create-trip'
+      path: '/create-trip'
+      fullPath: '/create-trip'
+      preLoaderRoute: typeof CreateTripRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +85,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trip/$tripId': {
+      id: '/trip/$tripId'
+      path: '/trip/$tripId'
+      fullPath: '/trip/$tripId'
+      preLoaderRoute: typeof TripTripIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$inviteCode': {
+      id: '/join/$inviteCode'
+      path: '/join/$inviteCode'
+      fullPath: '/join/$inviteCode'
+      preLoaderRoute: typeof JoinInviteCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreateTripRoute: CreateTripRoute,
+  JoinInviteCodeRoute: JoinInviteCodeRoute,
+  TripTripIdRoute: TripTripIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
