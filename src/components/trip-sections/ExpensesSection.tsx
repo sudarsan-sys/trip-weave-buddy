@@ -45,7 +45,7 @@ export function ExpensesSection({ tripId }: { tripId: string }) {
     e.preventDefault();
     const amt = parseFloat(amount);
     if (!amt || !desc.trim()) return;
-    const payerId = paidBy || members[0]?.user_id;
+    const payerId = paidBy || user?.id || members[0]?.user_id;
     const splitIds = split.length ? split : members.map((m) => m.user_id);
     addMut.mutate({ amount: amt, description: desc, paidBy: payerId, splitBetween: splitIds, category });
     setAmount("");
@@ -181,7 +181,7 @@ export function ExpensesSection({ tripId }: { tripId: string }) {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Paid by</label>
-            <select value={paidBy || members[0]?.user_id || ""} onChange={(e) => setPaidBy(e.target.value)} className={inputCls}>
+            <select value={paidBy || user?.id || members[0]?.user_id || ""} onChange={(e) => setPaidBy(e.target.value)} className={inputCls}>
               {members.map((m) => (
                 <option key={m.user_id} value={m.user_id}>{m.profiles?.display_name || m.profiles?.username}</option>
               ))}
