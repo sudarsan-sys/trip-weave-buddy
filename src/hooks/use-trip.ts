@@ -634,34 +634,15 @@ export function useInviteUser(tripId: string) {
 /** Join via invite code */
 export function useJoinViaCode() {
   const qc = useQueryClient();
-  const { user } = useAuth();
   return useMutation({
     mutationFn: async (inviteCode: string) => {
-      // Find trip by code
-      const { data: trip, error: lookupErr } = await supabase
-        .from("trips")
-        .select("id")
-        .eq("invite_code", inviteCode)
-        .maybeSingle();
-      if (lookupErr) throw lookupErr;
-      if (!trip) throw new Error("Invalid invite code");
-
-      // Check if already a member
-      const { data: existing } = await supabase
-        .from("trip_members")
-        .select("id")
-        .eq("trip_id", trip.id)
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (existing) return trip; // already a member, just return
-
-      // Add as member
-      await supabase.from("trip_members").insert({
-        trip_id: trip.id,
-        user_id: user!.id,
-        role: "member",
+      const { data: tripId, error } = await supabase.rpc('join_trip_by_code', {
+        p_invite_code: inviteCode,
       });
-      return trip;
+      if (error) throw new Error(error.message || "Invalid invite code");
+      if (!tripId) throw new Error("Invalid invite code");
+
+      return { id: tripId };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.myTrips });
