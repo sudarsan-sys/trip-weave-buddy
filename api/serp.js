@@ -1,7 +1,15 @@
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
 // Basic in-memory rate limiter (per Vercel instance)
 const rateLimit = new Map();
 const WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS = 10; // 10 requests per minute
+
+const querySchema = z.object({
+  q: z.string().min(1).max(100),
+  engine: z.string().optional(),
+});
 
 export default async function handler(req, res) {
   // 1. Basic IP Rate Limiting
@@ -21,13 +29,38 @@ export default async function handler(req, res) {
     }
   }
 
+  // 2. Authentication Verification (JWT)
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing or invalid Authorization header." });
+  }
+  const token = authHeader.split(" ")[1];
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(500).json({ error: "Server misconfiguration: Supabase keys are missing." });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { data: authData, error: authError } = await supabase.auth.getUser(token);
+
+  if (authError || !authData.user) {
+    console.error("Auth Error:", authError);
+    return res.status(403).json({ error: "Forbidden: Invalid or expired token." });
+  }
+
   // Extract all query parameters sent by the frontend
   const { searchParams } = new URL(req.url, `http://${req.headers.host}`);
   
-  // 2. Input Validation
-  const query = searchParams.get("q");
-  if (!query || typeof query !== 'string' || query.length > 100) {
-    return res.status(400).json({ error: "Invalid or missing search query (max 100 chars)." });
+  // 3. Input Validation with Zod
+  const queryResult = querySchema.safeParse({
+    q: searchParams.get("q"),
+    engine: searchParams.get("engine") || undefined,
+  });
+
+  if (!queryResult.success) {
+    return res.status(400).json({ error: "Invalid search query parameters.", details: queryResult.error.format() });
   }
   
   // Ensure we append the API key if it's somehow missing, 

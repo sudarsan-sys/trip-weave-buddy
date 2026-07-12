@@ -10,7 +10,7 @@ import { Search, ExternalLink, MapPin, Package, Loader2, Globe } from "lucide-re
 const serpCache = new Map<string, { data: any; ts: number }>();
 const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
 
-async function serpSearch(query: string): Promise<any> {
+async function serpSearch(query: string, token: string): Promise<any> {
   const key = query.trim().toLowerCase();
   if (!key) return null;
 
@@ -25,7 +25,11 @@ async function serpSearch(query: string): Promise<any> {
   url.searchParams.set("q", query);
   url.searchParams.set("api_key", apiKey);
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error(`SerpApi error: ${res.status}`);
   const data = await res.json();
   serpCache.set(key, { data, ts: Date.now() });
@@ -176,6 +180,7 @@ function SearchPackages({ destination }: { destination: string }) {
   const [results, setResults] = useState<any>(globalSearchState.results);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { session } = useAuth();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const suggestions = destination
@@ -188,11 +193,11 @@ function SearchPackages({ destination }: { destination: string }) {
     : [];
 
   const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) return;
+    if (!q.trim() || !session?.access_token) return;
     setLoading(true);
     setError("");
     try {
-      const data = await serpSearch(q);
+      const data = await serpSearch(q, session.access_token);
       setResults(data);
       globalSearchState.query = q;
       globalSearchState.results = data;
@@ -334,14 +339,15 @@ function DiscoverPlaces({ destination }: { destination: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const { session } = useAuth();
 
   // Auto-search once when destination is available
   useEffect(() => {
-    if (!destination || hasSearched) return;
+    if (!destination || hasSearched || !session?.access_token) return;
     setHasSearched(true);
     setLoading(true);
     setError("");
-    serpSearch(`best places to visit in ${destination}`)
+    serpSearch(`best places to visit in ${destination}`, session.access_token)
       .then((data) => setResults(data))
       .catch((err: any) => setError(err.message || "Failed to discover places"))
       .finally(() => setLoading(false));

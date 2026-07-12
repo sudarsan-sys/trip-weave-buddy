@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   display_name TEXT NOT NULL DEFAULT '',
   email       TEXT NOT NULL UNIQUE,
   avatar_url  TEXT,
+  role        TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -38,6 +39,26 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER on_profiles_updated
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Prevent users from elevating their own role
+CREATE OR REPLACE FUNCTION public.prevent_role_update()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_exec_role TEXT;
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    SELECT role INTO v_exec_role FROM public.profiles WHERE id = auth.uid();
+    IF v_exec_role IS DISTINCT FROM 'admin' THEN
+      RAISE EXCEPTION 'HTTP 403 Forbidden: Only admins can change roles.';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_profiles_role_update
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_role_update();
 
 -- ============================================================
 -- 2. TRIPS

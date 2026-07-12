@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTrip } from "@/hooks/use-trip";
+import { useAuth } from "@/hooks/use-auth";
 import { Cloud, MapPin, Navigation, Sparkles, Loader2, Wind, Droplets } from "lucide-react";
 
 /* ============================================================
@@ -8,7 +9,7 @@ import { Cloud, MapPin, Navigation, Sparkles, Loader2, Wind, Droplets } from "lu
 const weatherCache = new Map<string, { data: any; ts: number }>();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
-async function fetchWeather(destination: string) {
+async function fetchWeather(destination: string, token: string) {
   if (!destination) return null;
   const key = destination.trim().toLowerCase();
   
@@ -27,7 +28,11 @@ async function fetchWeather(destination: string) {
   url.searchParams.set("q", `weather in ${destination}`);
   url.searchParams.set("api_key", apiKey);
 
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
   if (!res.ok) throw new Error("Failed to fetch weather");
   const data = await res.json();
   const weatherResult = data.answer_box || null;
@@ -40,15 +45,16 @@ async function fetchWeather(destination: string) {
 
 export function MapsSection({ tripId }: { tripId: string }) {
   const { data: trip } = useTrip(tripId);
+  const { session } = useAuth();
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
 
   const destination = trip?.destination || "";
 
   useEffect(() => {
-    if (!destination) return;
+    if (!destination || !session?.access_token) return;
     setLoadingWeather(true);
-    fetchWeather(destination)
+    fetchWeather(destination, session.access_token)
       .then(setWeather)
       .catch(console.error)
       .finally(() => setLoadingWeather(false));
