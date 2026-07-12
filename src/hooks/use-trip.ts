@@ -169,7 +169,7 @@ export function useTripMessages(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chat_messages")
-        .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, profiles(*))")
+        .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, user_id, profiles(*))")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;

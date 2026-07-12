@@ -71,7 +71,9 @@ export function ChatSection({ tripId }: { tripId: string }) {
   useEffect(() => {
     if (!tripId) return;
 
-    const channel = supabase.channel(`chat:${tripId}`);
+    const channel = supabase.channel(`chat:${tripId}`, {
+      config: { broadcast: { self: false, ack: false } },
+    });
     channelRef.current = channel;
 
     channel
@@ -357,7 +359,7 @@ export function ChatSection({ tripId }: { tripId: string }) {
         {replyTo && (
           <div className="flex items-center justify-between px-4 py-2 bg-secondary/30 border-b border-border text-sm">
             <div className="flex flex-col overflow-hidden">
-              <span className="font-semibold text-primary text-xs">Replying to {getMemberName(replyTo.user_id)}</span>
+              <span className="font-semibold text-primary text-xs">Replying to {replyTo.profiles?.display_name || replyTo.profiles?.username || getMemberName(replyTo.user_id)}</span>
               <span className="truncate text-muted-foreground text-xs">{replyTo.message}</span>
             </div>
             <button onClick={() => setReplyTo(null)} className="p-1 hover:bg-secondary rounded-full text-muted-foreground">
