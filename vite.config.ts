@@ -9,13 +9,7 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   vite: {
     server: {
-      proxy: {
-        '/api/serp': {
-          target: 'https://serpapi.com',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/serp/, ''),
-        },
-      },
+      // Proxy removed as we use corsproxy.io directly on the frontend
     },
   },
   tanstackStart: {
