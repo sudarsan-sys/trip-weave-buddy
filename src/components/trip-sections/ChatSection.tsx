@@ -86,17 +86,14 @@ export function ChatSection({ tripId }: { tripId: string }) {
           filter: `trip_id=eq.${tripId}`,
         },
         async (payload) => {
-          // If the message is a reply, we need to fetch the joined reply_to_message data
-          // because postgres_changes only gives us the raw row (reply_to_id)
+          // Always fetch the joined message to get profiles, etc.
           let newMsg = payload.new as ChatMessage;
-          if (newMsg.reply_to_id) {
-            const { data } = await supabase
-              .from("chat_messages")
-              .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, profiles(*))")
-              .eq("id", newMsg.id)
-              .single();
-            if (data) newMsg = data as ChatMessage;
-          }
+          const { data } = await supabase
+            .from("chat_messages")
+            .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, user_id, profiles(*))")
+            .eq("id", newMsg.id)
+            .single();
+          if (data) newMsg = data as ChatMessage;
 
           // Update the query cache
           queryClient.setQueryData(
@@ -297,11 +294,18 @@ export function ChatSection({ tripId }: { tripId: string }) {
                   }
                 >
                   {/* Replied Message Snippet */}
-                  {msg.reply_to_message && (
-                    <div className={"mb-2 pl-2 border-l-2 text-xs opacity-80 " + (isMine ? "border-primary-foreground/40" : "border-primary/40")}>
-                      <div className="font-semibold">{msg.reply_to_message.profiles?.display_name || msg.reply_to_message.profiles?.username || "Unknown"}</div>
-                      <div className="truncate">{msg.reply_to_message.message}</div>
-                    </div>
+                  {msg.reply_to_id && (
+                    (() => {
+                      const orig = messages.find(m => m.id === msg.reply_to_id) || msg.reply_to_message as any;
+                      if (!orig) return null;
+                      const origName = orig.user_id ? getMemberName(orig.user_id) : (orig.profiles?.display_name || orig.profiles?.username || "Unknown");
+                      return (
+                        <div className={"mb-2 pl-2 border-l-2 text-xs opacity-80 " + (isMine ? "border-primary-foreground/40" : "border-primary/40")}>
+                          <div className="font-semibold">{origName}</div>
+                          <div className="truncate">{orig.message}</div>
+                        </div>
+                      );
+                    })()
                   )}
 
                   {/* Sender name (for others, only on first in group) */}
