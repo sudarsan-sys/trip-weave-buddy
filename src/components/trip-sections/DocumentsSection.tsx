@@ -63,7 +63,7 @@ const ALLOWED_TYPES = [
   "text/plain",
   "application/zip",
 ];
-const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 /* ============================================================
  * DocumentsSection — Upload to Supabase Storage
@@ -98,7 +98,7 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
       return `File type "${file.type || "unknown"}" is not supported.`;
     }
     if (file.size > MAX_SIZE) {
-      return `File is too large (${formatFileSize(file.size)}). Max is 50 MB.`;
+      return `File is too large (${formatFileSize(file.size)}). Max is 10 MB.`;
     }
     return null;
   };
@@ -224,7 +224,7 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
                 {isDragOver ? "Drop it here!" : "Drag & drop or click to upload"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                PDF, images, docs, spreadsheets, ZIP · up to 50 MB
+                PDF, images, docs, spreadsheets, ZIP · up to 10 MB
               </p>
             </div>
           </div>

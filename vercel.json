@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/serp/:match*",
+      "destination": "https://serpapi.com/:match*"
+    }
+  ]
+}
