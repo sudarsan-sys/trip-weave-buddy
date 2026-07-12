@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   trip_id     UUID NOT NULL REFERENCES public.trips(id) ON DELETE CASCADE,
   paid_by     UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  amount      NUMERIC NOT NULL DEFAULT 0,
+  amount      NUMERIC NOT NULL DEFAULT 0 CHECK (amount >= 0),
   description TEXT NOT NULL DEFAULT '',
   category    TEXT CHECK (category IN ('Stay', 'Food', 'Travel', 'Activities', 'Other')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -149,7 +149,8 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   trip_id    UUID NOT NULL REFERENCES public.trips(id) ON DELETE CASCADE,
   user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  message    TEXT NOT NULL,
+  message    TEXT NOT NULL CHECK (char_length(trim(message)) > 0),
+  reply_to_id UUID REFERENCES public.chat_messages(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -259,6 +260,22 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- ============================================================
+-- HELPER: is user an organizer of trip?
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.is_trip_organizer(p_trip_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  is_organizer BOOLEAN;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM public.trip_members
+    WHERE trip_id = p_trip_id AND user_id = auth.uid() AND role = 'organizer'
+  ) INTO is_organizer;
+  RETURN is_organizer;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- ============================================================
 -- TRIPS POLICIES
 -- ============================================================
 
@@ -326,7 +343,7 @@ CREATE POLICY "invitations_update" ON public.invitations
 -- TRIP-SCOPED TABLE POLICIES (expenses, packages, checklist, chat, docs, places, routes)
 -- ============================================================
 
--- Macro: For each trip-scoped table, members can SELECT, INSERT, DELETE
+-- Macro: For each trip-scoped table, members can SELECT, INSERT
 DO $$
 DECLARE
   tbl TEXT;
@@ -344,13 +361,32 @@ BEGIN
       'CREATE POLICY "%1$s_insert_member" ON public.%1$I FOR INSERT WITH CHECK (public.is_trip_member(trip_id))',
       tbl
     );
-    EXECUTE format(
-      'CREATE POLICY "%1$s_delete_member" ON public.%1$I FOR DELETE USING (public.is_trip_member(trip_id))',
-      tbl
-    );
   END LOOP;
 END;
 $$;
+
+-- Strict Update & Delete Policies (Ownership based)
+CREATE POLICY "expenses_update_own" ON public.expenses FOR UPDATE USING (paid_by = auth.uid() OR public.is_trip_organizer(trip_id));
+CREATE POLICY "expenses_delete_own" ON public.expenses FOR DELETE USING (paid_by = auth.uid() OR public.is_trip_organizer(trip_id));
+
+CREATE POLICY "packages_update_own" ON public.packages FOR UPDATE USING (uploaded_by = auth.uid() OR public.is_trip_organizer(trip_id));
+CREATE POLICY "packages_delete_own" ON public.packages FOR DELETE USING (uploaded_by = auth.uid() OR public.is_trip_organizer(trip_id));
+
+CREATE POLICY "chat_messages_update_own" ON public.chat_messages FOR UPDATE USING (user_id = auth.uid() OR public.is_trip_organizer(trip_id));
+CREATE POLICY "chat_messages_delete_own" ON public.chat_messages FOR DELETE USING (user_id = auth.uid() OR public.is_trip_organizer(trip_id));
+
+CREATE POLICY "documents_update_own" ON public.documents FOR UPDATE USING (uploaded_by = auth.uid() OR public.is_trip_organizer(trip_id));
+CREATE POLICY "documents_delete_own" ON public.documents FOR DELETE USING (uploaded_by = auth.uid() OR public.is_trip_organizer(trip_id));
+
+-- Collaborative tables (Any member can edit/delete)
+CREATE POLICY "checklist_items_update_member" ON public.checklist_items FOR UPDATE USING (public.is_trip_member(trip_id));
+CREATE POLICY "checklist_items_delete_member" ON public.checklist_items FOR DELETE USING (public.is_trip_member(trip_id));
+
+CREATE POLICY "places_update_member" ON public.places FOR UPDATE USING (public.is_trip_member(trip_id));
+CREATE POLICY "places_delete_member" ON public.places FOR DELETE USING (public.is_trip_member(trip_id));
+
+CREATE POLICY "routes_update_member" ON public.routes FOR UPDATE USING (public.is_trip_member(trip_id));
+CREATE POLICY "routes_delete_member" ON public.routes FOR DELETE USING (public.is_trip_member(trip_id));
 
 -- expense_splits: access via expense's trip
 CREATE POLICY "expense_splits_select" ON public.expense_splits

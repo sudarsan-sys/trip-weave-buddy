@@ -15,7 +15,12 @@ async function fetchWeather(destination: string) {
   const cached = weatherCache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
-  const apiKey = import.meta.env.VITE_SERPAPI_KEY || "b08f99fe9c6e8507fa20fb71f7a47da9a29e62739937c39e56092c24e6973e39";
+  const apiKey = import.meta.env.VITE_SERPAPI_KEY;
+  if (!apiKey) {
+    console.warn("VITE_SERPAPI_KEY is not set in .env");
+    // We can still proceed if they want to rely entirely on the backend, 
+    // but the backend will fail without the key too. We pass it optionally if it exists.
+  }
 
   const url = new URL("/api/serp", window.location.origin);
   url.searchParams.set("engine", "google");
