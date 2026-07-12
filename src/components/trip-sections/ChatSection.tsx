@@ -8,7 +8,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "./Avatar";
-import { Send, MessageCircle, Wifi, WifiOff } from "lucide-react";
+import { Send, MessageCircle, Wifi, WifiOff, CornerUpLeft, X } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 
 /* ============================================================
@@ -48,9 +48,14 @@ export function ChatSection({ tripId }: { tripId: string }) {
 
   const [text, setText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const channelRef = useRef<any>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
   /* ── Auto-scroll to bottom ───────────────────────────────── */
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -66,8 +71,10 @@ export function ChatSection({ tripId }: { tripId: string }) {
   useEffect(() => {
     if (!tripId) return;
 
-    const channel = supabase
-      .channel(`chat:${tripId}`)
+    const channel = supabase.channel(`chat:${tripId}`);
+    channelRef.current = channel;
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -76,18 +83,52 @@ export function ChatSection({ tripId }: { tripId: string }) {
           table: "chat_messages",
           filter: `trip_id=eq.${tripId}`,
         },
-        (payload) => {
-          // When a new message arrives via WebSocket, update the query cache
+        async (payload) => {
+          // If the message is a reply, we need to fetch the joined reply_to_message data
+          // because postgres_changes only gives us the raw row (reply_to_id)
+          let newMsg = payload.new as ChatMessage;
+          if (newMsg.reply_to_id) {
+            const { data } = await supabase
+              .from("chat_messages")
+              .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, profiles(*))")
+              .eq("id", newMsg.id)
+              .single();
+            if (data) newMsg = data as ChatMessage;
+          }
+
+          // Update the query cache
           queryClient.setQueryData(
             ["trip", tripId, "messages"],
             (old: ChatMessage[] | undefined) => {
-              if (!old) return [payload.new as ChatMessage];
+              if (!old) return [newMsg];
               // Avoid duplicates (in case we already have it from optimistic update)
-              const exists = old.some((m) => m.id === (payload.new as ChatMessage).id);
+              const exists = old.some((m) => m.id === newMsg.id);
               if (exists) return old;
-              return [...old, payload.new as ChatMessage];
+              return [...old, newMsg];
             }
           );
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "typing" },
+        (payload) => {
+          if (payload.payload?.user_id && payload.payload.user_id !== user?.id) {
+            const uid = payload.payload.user_id;
+            setTypingUsers((prev) => {
+              const next = new Set(prev);
+              next.add(uid);
+              return next;
+            });
+            // clear after 3s
+            setTimeout(() => {
+              setTypingUsers((prev) => {
+                const next = new Set(prev);
+                next.delete(uid);
+                return next;
+              });
+            }, 3000);
+          }
         }
       )
       .subscribe((status) => {
@@ -98,16 +139,34 @@ export function ChatSection({ tripId }: { tripId: string }) {
       supabase.removeChannel(channel);
       setIsConnected(false);
     };
-  }, [tripId, queryClient]);
+  }, [tripId, queryClient, user?.id]);
 
   /* ── Send message ────────────────────────────────────────── */
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || sendMutation.isPending) return;
-    sendMutation.mutate(trimmed);
+    sendMutation.mutate({ message: trimmed, replyToId: replyTo?.id });
     setText("");
+    setReplyTo(null);
     inputRef.current?.focus();
+  };
+
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setText(e.target.value);
+    if (!isConnected || !channelRef.current) return;
+    
+    // throttle broadcast
+    if (!typingTimeoutRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { user_id: user?.id },
+      });
+      typingTimeoutRef.current = setTimeout(() => {
+        typingTimeoutRef.current = undefined;
+      }, 2000);
+    }
   };
 
   /* ── Get member info ─────────────────────────────────────── */
@@ -146,7 +205,7 @@ export function ChatSection({ tripId }: { tripId: string }) {
   return (
     <div className="rounded-2xl border border-border bg-card flex flex-col h-[calc(100vh-220px)] lg:h-[580px] overflow-hidden">
       {/* ── Header ──────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-card/80 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-card/80 backdrop-blur-sm z-10">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10">
             <MessageCircle className="h-4.5 w-4.5 text-primary" />
@@ -204,7 +263,7 @@ export function ChatSection({ tripId }: { tripId: string }) {
               <div
                 key={msg.id}
                 className={
-                  "flex items-end gap-2 " +
+                  "group flex items-end gap-2 " +
                   (isMine ? "justify-end " : "") +
                   (consecutive ? "mt-0.5" : "mt-3") +
                   " animate-[fadeSlideIn_0.25s_ease-out]"
@@ -219,6 +278,13 @@ export function ChatSection({ tripId }: { tripId: string }) {
                   </div>
                 )}
 
+                {/* Reply button for my messages (appears on left) */}
+                {isMine && (
+                  <button onClick={() => setReplyTo(msg)} className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:bg-secondary rounded-full transition-opacity shrink-0 mb-1" title="Reply">
+                    <CornerUpLeft className="h-3.5 w-3.5" />
+                  </button>
+                )}
+
                 {/* Bubble */}
                 <div
                   className={
@@ -228,6 +294,14 @@ export function ChatSection({ tripId }: { tripId: string }) {
                       : "bg-secondary/80 rounded-2xl rounded-bl-lg")
                   }
                 >
+                  {/* Replied Message Snippet */}
+                  {msg.reply_to_message && (
+                    <div className={"mb-2 pl-2 border-l-2 text-xs opacity-80 " + (isMine ? "border-primary-foreground/40" : "border-primary/40")}>
+                      <div className="font-semibold">{msg.reply_to_message.profiles?.display_name || msg.reply_to_message.profiles?.username || "Unknown"}</div>
+                      <div className="truncate">{msg.reply_to_message.message}</div>
+                    </div>
+                  )}
+
                   {/* Sender name (for others, only on first in group) */}
                   {!isMine && showAvatar && (
                     <div className="text-[11px] font-semibold text-primary/80 mb-0.5">
@@ -249,41 +323,74 @@ export function ChatSection({ tripId }: { tripId: string }) {
                   </div>
                 </div>
 
+                {/* Reply button for others' messages (appears on right) */}
+                {!isMine && (
+                  <button onClick={() => setReplyTo(msg)} className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:bg-secondary rounded-full transition-opacity shrink-0 mb-1" title="Reply">
+                    <CornerUpLeft className="h-3.5 w-3.5" />
+                  </button>
+                )}
+
                 {/* Spacer for own messages (right-aligned) */}
                 {isMine && <div className="w-1 shrink-0" />}
               </div>
             );
           })
         )}
-        <div ref={messagesEndRef} />
+        
+        {/* Typing indicators */}
+        {typingUsers.size > 0 && (
+          <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground px-10">
+            <div className="flex gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            {Array.from(typingUsers).map(getMemberName).join(", ")} {typingUsers.size === 1 ? "is" : "are"} typing...
+          </div>
+        )}
+
+        <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* ── Input ───────────────────────────────────────────── */}
-      <form
-        onSubmit={handleSend}
-        className="flex items-center gap-2 px-4 py-3 border-t border-border bg-card/80 backdrop-blur-sm"
-      >
-        <input
-          ref={inputRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Message the group…"
-          className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary transition placeholder:text-muted-foreground/60"
-          autoComplete="off"
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || sendMutation.isPending}
-          className={
-            "grid h-10 w-10 place-items-center rounded-xl transition " +
-            (text.trim()
-              ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
-              : "bg-secondary text-muted-foreground cursor-not-allowed")
-          }
+      {/* ── Input Area ──────────────────────────────────────── */}
+      <div className="flex flex-col border-t border-border bg-card/80 backdrop-blur-sm z-10">
+        {replyTo && (
+          <div className="flex items-center justify-between px-4 py-2 bg-secondary/30 border-b border-border text-sm">
+            <div className="flex flex-col overflow-hidden">
+              <span className="font-semibold text-primary text-xs">Replying to {getMemberName(replyTo.user_id)}</span>
+              <span className="truncate text-muted-foreground text-xs">{replyTo.message}</span>
+            </div>
+            <button onClick={() => setReplyTo(null)} className="p-1 hover:bg-secondary rounded-full text-muted-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        <form
+          onSubmit={handleSend}
+          className="flex items-center gap-2 px-4 py-3"
         >
-          <Send className="h-4 w-4" />
-        </button>
-      </form>
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={handleTyping}
+            placeholder="Message the group…"
+            className="flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary transition placeholder:text-muted-foreground/60"
+            autoComplete="off"
+          />
+          <button
+            type="submit"
+            disabled={!text.trim() || sendMutation.isPending}
+            className={
+              "grid h-10 w-10 place-items-center rounded-xl transition " +
+              (text.trim()
+                ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer shadow-sm"
+                : "bg-secondary text-muted-foreground cursor-not-allowed")
+            }
+          >
+            <Send className="h-4 w-4 ml-0.5" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

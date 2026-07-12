@@ -99,8 +99,10 @@ export interface ChatMessage {
   user_id: string;
   message: string;
   created_at: string;
+  reply_to_id?: string | null;
   /* joined */
   profiles?: Profile;
+  reply_to_message?: { message: string, profiles?: Profile } | null;
 }
 
 export interface TripDocument {

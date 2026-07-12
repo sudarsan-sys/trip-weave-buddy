@@ -161,7 +161,7 @@ export function useTripChecklist(tripId: string) {
   });
 }
 
-/** Chat messages with profiles */
+/** Chat messages with profiles and reply_to_message */
 export function useTripMessages(tripId: string) {
   return useQuery({
     queryKey: keys.messages(tripId),
@@ -169,7 +169,7 @@ export function useTripMessages(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chat_messages")
-        .select("*, profiles(*)")
+        .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, profiles(*))")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -478,10 +478,10 @@ export function useSendMessage(tripId: string) {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async ({ message, replyToId }: { message: string; replyToId?: string | null }) => {
       const { error } = await supabase
         .from("chat_messages")
-        .insert({ trip_id: tripId, user_id: user!.id, message });
+        .insert({ trip_id: tripId, user_id: user!.id, message, reply_to_id: replyToId || null });
       if (error) throw error;
     },
     onSuccess: () => {

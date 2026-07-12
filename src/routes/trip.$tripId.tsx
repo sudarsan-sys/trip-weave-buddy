@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import {
   useTrip,
   useTripMembers,
@@ -80,12 +82,46 @@ function TripDashboard() {
     setMounted(true);
   }, []);
 
-  // Auth guard
   useEffect(() => {
     if (mounted && isInitialized && !isLoggedIn) {
       navigate({ to: "/login" });
     }
   }, [mounted, isInitialized, isLoggedIn, navigate]);
+
+  // Realtime notifications
+  useEffect(() => {
+    if (!tripId || !user) return;
+    
+    const channel = supabase
+      .channel(`trip-notifications:${tripId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages", filter: `trip_id=eq.${tripId}` },
+        (payload) => {
+          if (payload.new.user_id !== user.id) {
+            toast.info("New message in Chat", {
+              description: payload.new.message.slice(0, 50) + (payload.new.message.length > 50 ? "..." : "")
+            });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "expenses", filter: `trip_id=eq.${tripId}` },
+        (payload) => {
+          if (payload.new.paid_by !== user.id) {
+            toast.success("New expense added", {
+              description: `₹${payload.new.amount} for ${payload.new.description}`
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tripId, user]);
 
   // Loading
   if (!mounted || !isInitialized || loadingTrip) {
