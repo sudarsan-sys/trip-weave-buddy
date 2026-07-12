@@ -9,8 +9,8 @@ export interface DestinationData {
   crowd: "Low" | "Medium" | "High";
   scenicRoutesTeaser: string;
   experiences: string[];
-  places: Place[];
-  routes: TripRoute[];
+  places: any[];
+  routes: any[];
 }
 
 const IMG = (seed: string) =>

@@ -1,4 +1,4 @@
-import type { Expense, Member } from "./types";
+import type { SettlementExpense, SettlementMember } from "./types";
 
 export interface Settlement {
   from: string;
@@ -25,8 +25,8 @@ export interface PersonSummary {
  *                 to within `roundTo` per settlement.
  */
 export function calculateSettlements(
-  expenses: Expense[],
-  members: Member[],
+  expenses: SettlementExpense[],
+  members: SettlementMember[],
   roundTo = 0,
 ): { settlements: Settlement[]; summary: PersonSummary[]; adjusted: number } {
   const balances = new Map<string, number>();
