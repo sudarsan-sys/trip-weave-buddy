@@ -19,15 +19,12 @@ async function serpSearch(query: string): Promise<any> {
 
   const apiKey = import.meta.env.VITE_SERPAPI_KEY || "b08f99fe9c6e8507fa20fb71f7a47da9a29e62739937c39e56092c24e6973e39";
   
-  const targetUrl = new URL("https://serpapi.com/search.json");
-  targetUrl.searchParams.set("engine", "google");
-  targetUrl.searchParams.set("q", query);
-  targetUrl.searchParams.set("api_key", apiKey);
+  const url = new URL("/api/serp", window.location.origin);
+  url.searchParams.set("engine", "google");
+  url.searchParams.set("q", query);
+  url.searchParams.set("api_key", apiKey);
 
-  // Use CORS proxy to bypass browser restrictions
-  const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl.toString())}`;
-
-  const res = await fetch(url);
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`SerpApi error: ${res.status}`);
   const data = await res.json();
   serpCache.set(key, { data, ts: Date.now() });

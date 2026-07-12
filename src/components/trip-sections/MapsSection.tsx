@@ -15,21 +15,14 @@ async function fetchWeather(destination: string) {
   const cached = weatherCache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
-  const apiKey = import.meta.env.VITE_SERPAPI_KEY;
-  if (!apiKey) {
-    console.warn("VITE_SERPAPI_KEY is not set in .env");
-    return null;
-  }
+  const apiKey = import.meta.env.VITE_SERPAPI_KEY || "b08f99fe9c6e8507fa20fb71f7a47da9a29e62739937c39e56092c24e6973e39";
 
-  const targetUrl = new URL("https://serpapi.com/search.json");
-  targetUrl.searchParams.set("engine", "google");
-  targetUrl.searchParams.set("q", `weather in ${destination}`);
-  targetUrl.searchParams.set("api_key", apiKey);
+  const url = new URL("/api/serp", window.location.origin);
+  url.searchParams.set("engine", "google");
+  url.searchParams.set("q", `weather in ${destination}`);
+  url.searchParams.set("api_key", apiKey);
 
-  // Use a reliable CORS proxy to bypass browser restrictions directly
-  const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl.toString())}`;
-
-  const res = await fetch(url);
+  const res = await fetch(url.toString());
   if (!res.ok) throw new Error("Failed to fetch weather");
   const data = await res.json();
   const weatherResult = data.answer_box || null;
