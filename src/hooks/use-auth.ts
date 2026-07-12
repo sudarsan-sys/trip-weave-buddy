@@ -36,7 +36,7 @@ if (isBrowser) {
     if (session?.user) {
       const { data } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, username, display_name, avatar_url")
         .eq("id", session.user.id)
         .single();
       currentProfile = data;
@@ -50,7 +50,7 @@ if (isBrowser) {
     if (session?.user) {
       const { data } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, username, display_name, avatar_url")
         .eq("id", session.user.id)
         .single();
       currentProfile = data;

@@ -46,7 +46,7 @@ export function useMyTrips() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trip_members")
-        .select("trip_id, role, trips(*)")
+        .select("trip_id, role, trips(id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at)")
         .eq("user_id", user!.id)
         .order("joined_at", { ascending: false });
       if (error) throw error;
@@ -67,7 +67,7 @@ export function useMyInvitations() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invitations")
-        .select("*, trips(*), inviter:invited_by(username, display_name)")
+        .select("id, trip_id, invited_by, invited_user_id, status, created_at, responded_at, trips(id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at), inviter:invited_by(username, display_name)")
         .eq("invited_user_id", user!.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
@@ -85,7 +85,7 @@ export function useTrip(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trips")
-        .select("*")
+        .select("id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at")
         .eq("id", tripId)
         .single();
       if (error) throw error;
@@ -102,7 +102,7 @@ export function useTripMembers(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trip_members")
-        .select("*, profiles(*)")
+        .select("id, trip_id, user_id, role, joined_at, profiles(id, username, display_name, avatar_url, created_at, updated_at)")
         .eq("trip_id", tripId);
       if (error) throw error;
       return (data ?? []) as TripMember[];
@@ -118,7 +118,7 @@ export function useTripExpenses(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expenses")
-        .select("*, expense_splits(*)")
+        .select("id, trip_id, paid_by, amount, description, category, created_at, expense_splits(id, expense_id, user_id)")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -135,7 +135,7 @@ export function useTripPackages(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("packages")
-        .select("*")
+        .select("id, trip_id, title, type, uploaded_by, url, created_at")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -152,7 +152,7 @@ export function useTripChecklist(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklist_items")
-        .select("*, checklist_completions(*)")
+        .select("id, trip_id, label, created_at, checklist_completions(id, item_id, user_id, completed_at)")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -169,7 +169,7 @@ export function useTripMessages(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chat_messages")
-        .select("*, profiles(*), reply_to_message:chat_messages!reply_to_id(message, user_id, profiles(*))")
+        .select("id, trip_id, user_id, message, reply_to_id, created_at, profiles(id, username, display_name, avatar_url), reply_to_message:chat_messages!reply_to_id(message, user_id, profiles(id, username, display_name, avatar_url))")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -186,7 +186,7 @@ export function useTripDocuments(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("documents")
-        .select("*")
+        .select("id, trip_id, uploaded_by, file_name, storage_path, file_size, content_type, created_at")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -203,7 +203,7 @@ export function useTripPlaces(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("places")
-        .select("*")
+        .select("id, trip_id, name, image_url, description, tag, source, created_at")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -220,7 +220,7 @@ export function useTripRoutes(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("routes")
-        .select("*, route_stops(*)")
+        .select("id, trip_id, type, name, duration, distance, created_at, route_stops(id, route_id, name, icon, sort_order)")
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -552,7 +552,7 @@ export function useAcceptInvitation() {
       // Get invitation details
       const { data: inv, error: fetchErr } = await supabase
         .from("invitations")
-        .select("*")
+        .select("id, trip_id, invited_by, invited_user_id, status, created_at, responded_at")
         .eq("id", invitationId)
         .single();
       if (fetchErr) throw fetchErr;

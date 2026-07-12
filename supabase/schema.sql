@@ -321,6 +321,10 @@ CREATE POLICY "trip_members_delete" ON public.trip_members
     )
   );
 
+-- Organizers can update trip_members roles
+CREATE POLICY "trip_members_update" ON public.trip_members
+  FOR UPDATE USING (public.is_trip_organizer(trip_id));
+
 -- ============================================================
 -- INVITATIONS POLICIES
 -- ============================================================
@@ -548,3 +552,33 @@ CREATE INDEX IF NOT EXISTS idx_places_trip ON public.places(trip_id);
 CREATE INDEX IF NOT EXISTS idx_routes_trip ON public.routes(trip_id);
 CREATE INDEX IF NOT EXISTS idx_route_stops_route ON public.route_stops(route_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_trips_invite_code ON public.trips(invite_code);
+
+-- ============================================================
+-- SECURE RPC: JOIN TRIP BY CODE
+-- ============================================================
+-- Runs with SECURITY DEFINER to bypass trips read restrictions
+CREATE OR REPLACE FUNCTION public.join_trip_by_code(p_invite_code TEXT)
+RETURNS UUID AS $$
+DECLARE
+  v_trip_id UUID;
+  v_existing UUID;
+BEGIN
+  -- 1. Find the trip by code
+  SELECT id INTO v_trip_id FROM public.trips WHERE invite_code = p_invite_code;
+  
+  IF v_trip_id IS NULL THEN
+    RAISE EXCEPTION 'Invalid invite code';
+  END IF;
+
+  -- 2. Check if already a member
+  SELECT id INTO v_existing FROM public.trip_members WHERE trip_id = v_trip_id AND user_id = auth.uid();
+  
+  IF v_existing IS NULL THEN
+    -- 3. Insert as member
+    INSERT INTO public.trip_members (trip_id, user_id, role)
+    VALUES (v_trip_id, auth.uid(), 'member');
+  END IF;
+
+  RETURN v_trip_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
