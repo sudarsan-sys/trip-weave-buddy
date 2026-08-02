@@ -9,6 +9,7 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   vite: {
     server: {
+      allowedHosts: ["trip-weave-alb-1857450693.ap-south-1.elb.amazonaws.com"],
       proxy: {
         '/api/serp': {
           target: 'https://serpapi.com',
