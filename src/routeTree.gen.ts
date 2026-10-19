@@ -16,6 +16,7 @@ import { Route as CreateTripRouteImport } from './routes/create-trip'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TripTripIdRouteImport } from './routes/trip.$tripId'
 import { Route as JoinInviteCodeRouteImport } from './routes/join.$inviteCode'
+import { Route as ApiS3PresignRouteImport } from './routes/api/s3-presign'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -52,6 +53,11 @@ const JoinInviteCodeRoute = JoinInviteCodeRouteImport.update({
   path: '/join/$inviteCode',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiS3PresignRoute = ApiS3PresignRouteImport.update({
+  id: '/api/s3-presign',
+  path: '/api/s3-presign',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/s3-presign': typeof ApiS3PresignRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/trip/$tripId': typeof TripTripIdRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/s3-presign': typeof ApiS3PresignRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/trip/$tripId': typeof TripTripIdRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/s3-presign': typeof ApiS3PresignRoute
   '/join/$inviteCode': typeof JoinInviteCodeRoute
   '/trip/$tripId': typeof TripTripIdRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
+    | '/api/s3-presign'
     | '/join/$inviteCode'
     | '/trip/$tripId'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
+    | '/api/s3-presign'
     | '/join/$inviteCode'
     | '/trip/$tripId'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
+    | '/api/s3-presign'
     | '/join/$inviteCode'
     | '/trip/$tripId'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiS3PresignRoute: typeof ApiS3PresignRoute
   JoinInviteCodeRoute: typeof JoinInviteCodeRoute
   TripTripIdRoute: typeof TripTripIdRoute
 }
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JoinInviteCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/s3-presign': {
+      id: '/api/s3-presign'
+      path: '/api/s3-presign'
+      fullPath: '/api/s3-presign'
+      preLoaderRoute: typeof ApiS3PresignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiS3PresignRoute: ApiS3PresignRoute,
   JoinInviteCodeRoute: JoinInviteCodeRoute,
   TripTripIdRoute: TripTripIdRoute,
 }

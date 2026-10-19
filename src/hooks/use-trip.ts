@@ -33,6 +33,17 @@ const keys = {
   routes: (id: string) => ["trip", id, "routes"] as const,
 };
 
+async function readDocumentApiJson(response: Response): Promise<any> {
+  const rawBody = await response.text();
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    throw new Error(
+      "The document API returned HTML instead of a response. Restart the development server or deploy the latest build.",
+    );
+  }
+}
+
 /* ============================================================
  * QUERIES
  * ============================================================ */
@@ -46,7 +57,9 @@ export function useMyTrips() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trip_members")
-        .select("trip_id, role, trips(id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at)")
+        .select(
+          "trip_id, role, trips(id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at)",
+        )
         .eq("user_id", user!.id)
         .order("joined_at", { ascending: false });
       if (error) throw error;
@@ -67,7 +80,9 @@ export function useMyInvitations() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invitations")
-        .select("id, trip_id, invited_by, invited_user_id, status, created_at, responded_at, trips(id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at), inviter:invited_by(username, display_name)")
+        .select(
+          "id, trip_id, invited_by, invited_user_id, status, created_at, responded_at, trips(id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at), inviter:invited_by(username, display_name)",
+        )
         .eq("invited_user_id", user!.id)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
@@ -85,7 +100,9 @@ export function useTrip(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trips")
-        .select("id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at")
+        .select(
+          "id, name, destination, start_date, end_date, invite_code, budget_total, created_by, created_at, updated_at",
+        )
         .eq("id", tripId)
         .single();
       if (error) throw error;
@@ -102,7 +119,9 @@ export function useTripMembers(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trip_members")
-        .select("id, trip_id, user_id, role, joined_at, profiles(id, username, display_name, avatar_url, created_at, updated_at)")
+        .select(
+          "id, trip_id, user_id, role, joined_at, profiles(id, username, display_name, avatar_url, created_at, updated_at)",
+        )
         .eq("trip_id", tripId);
       if (error) throw error;
       return (data ?? []) as TripMember[];
@@ -118,7 +137,9 @@ export function useTripExpenses(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expenses")
-        .select("id, trip_id, paid_by, amount, description, category, created_at, expense_splits(id, expense_id, user_id)")
+        .select(
+          "id, trip_id, paid_by, amount, description, category, created_at, expense_splits(id, expense_id, user_id)",
+        )
         .eq("trip_id", tripId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -152,7 +173,9 @@ export function useTripChecklist(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklist_items")
-        .select("id, trip_id, label, created_at, checklist_completions(id, item_id, user_id, completed_at)")
+        .select(
+          "id, trip_id, label, created_at, checklist_completions(id, item_id, user_id, completed_at)",
+        )
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -169,7 +192,9 @@ export function useTripMessages(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chat_messages")
-        .select("id, trip_id, user_id, message, reply_to_id, created_at, profiles(id, username, display_name, avatar_url), reply_to_message:chat_messages!reply_to_id(message, user_id, profiles(id, username, display_name, avatar_url))")
+        .select(
+          "id, trip_id, user_id, message, reply_to_id, created_at, profiles(id, username, display_name, avatar_url), reply_to_message:chat_messages!reply_to_id(message, user_id, profiles(id, username, display_name, avatar_url))",
+        )
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -186,7 +211,9 @@ export function useTripDocuments(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("documents")
-        .select("id, trip_id, uploaded_by, file_name, storage_path, file_size, content_type, created_at")
+        .select(
+          "id, trip_id, uploaded_by, file_name, storage_path, file_size, content_type, created_at",
+        )
         .eq("trip_id", tripId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -220,7 +247,9 @@ export function useTripRoutes(tripId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("routes")
-        .select("id, trip_id, type, name, duration, distance, created_at, route_stops(id, route_id, name, icon, sort_order)")
+        .select(
+          "id, trip_id, type, name, duration, distance, created_at, route_stops(id, route_id, name, icon, sort_order)",
+        )
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -276,10 +305,17 @@ export function useCreateTrip() {
       if (memErr) throw memErr;
 
       // 3. Add default checklist items
-      const defaults = ["Power bank", "Medicines", "Tickets", "ID / Aadhaar", "Raincoat", "Chargers"];
-      await supabase.from("checklist_items").insert(
-        defaults.map((label) => ({ trip_id: trip.id, label })),
-      );
+      const defaults = [
+        "Power bank",
+        "Medicines",
+        "Tickets",
+        "ID / Aadhaar",
+        "Raincoat",
+        "Chargers",
+      ];
+      await supabase
+        .from("checklist_items")
+        .insert(defaults.map((label) => ({ trip_id: trip.id, label })));
 
       // 4. Send invitations
       for (const uname of input.inviteUsernames) {
@@ -417,9 +453,7 @@ export function useAddChecklistItem(tripId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (label: string) => {
-      const { error } = await supabase
-        .from("checklist_items")
-        .insert({ trip_id: tripId, label });
+      const { error } = await supabase.from("checklist_items").insert({ trip_id: tripId, label });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -445,9 +479,7 @@ export function useToggleChecklist(tripId: string) {
       if (existing) {
         await supabase.from("checklist_completions").delete().eq("id", existing.id);
       } else {
-        await supabase
-          .from("checklist_completions")
-          .insert({ item_id: itemId, user_id: user!.id });
+        await supabase.from("checklist_completions").insert({ item_id: itemId, user_id: user!.id });
       }
     },
     onSuccess: () => {
@@ -493,26 +525,44 @@ export function useSendMessage(tripId: string) {
 /** Upload document */
 export function useUploadDocument(tripId: string) {
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   return useMutation({
     mutationFn: async (file: File) => {
-      const docId = crypto.randomUUID();
-      const storagePath = `${tripId}/${docId}/${file.name}`;
+      if (!user || !session?.access_token)
+        throw new Error("Please sign in before uploading a document.");
+      const contentType = file.type || "application/octet-stream";
+      const signResponse = await fetch("/api/s3-presign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          action: "upload",
+          tripId,
+          fileName: file.name,
+          contentType,
+          fileSize: file.size,
+        }),
+      });
+      const signedUpload = await readDocumentApiJson(signResponse);
+      if (!signResponse.ok) throw new Error(signedUpload.error || "Could not prepare S3 upload.");
 
-      // Upload to Supabase Storage
-      const { error: uploadErr } = await supabase.storage
-        .from("trip-documents")
-        .upload(storagePath, file, { contentType: file.type });
-      if (uploadErr) throw uploadErr;
+      const uploadResponse = await fetch(signedUpload.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: file,
+      });
+      if (!uploadResponse.ok) throw new Error("Upload to S3 failed.");
 
       // Insert document record
       const { error: dbErr } = await supabase.from("documents").insert({
         trip_id: tripId,
         uploaded_by: user!.id,
         file_name: file.name,
-        storage_path: storagePath,
+        storage_path: signedUpload.storagePath,
         file_size: file.size,
-        content_type: file.type || "application/octet-stream",
+        content_type: contentType,
       });
       if (dbErr) throw dbErr;
     },
@@ -525,15 +575,22 @@ export function useUploadDocument(tripId: string) {
 /** Delete document (storage + db record) */
 export function useDeleteDocument(tripId: string) {
   const qc = useQueryClient();
+  const { session } = useAuth();
   return useMutation({
     mutationFn: async ({ docId, storagePath }: { docId: string; storagePath: string }) => {
-      // 1. Delete from storage
-      const { error: storageErr } = await supabase.storage
-        .from("trip-documents")
-        .remove([storagePath]);
-      if (storageErr) throw storageErr;
+      if (!session?.access_token) throw new Error("Please sign in before deleting a document.");
+      const deleteResponse = await fetch("/api/s3-presign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "delete", tripId, storagePath }),
+      });
+      const deleted = await readDocumentApiJson(deleteResponse);
+      if (!deleteResponse.ok) throw new Error(deleted.error || "Could not delete the S3 document.");
 
-      // 2. Delete db record
+      // Delete metadata after removing the S3 object.
       const { error: dbErr } = await supabase.from("documents").delete().eq("id", docId);
       if (dbErr) throw dbErr;
     },
@@ -636,7 +693,7 @@ export function useJoinViaCode() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (inviteCode: string) => {
-      const { data: tripId, error } = await supabase.rpc('join_trip_by_code', {
+      const { data: tripId, error } = await supabase.rpc("join_trip_by_code", {
         p_invite_code: inviteCode,
       });
       if (error) throw new Error(error.message || "Invalid invite code");
@@ -651,12 +708,23 @@ export function useJoinViaCode() {
 }
 
 /** Get signed download URL for a document */
-export async function getDocumentUrl(storagePath: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from("trip-documents")
-    .createSignedUrl(storagePath, 3600); // 1hr
-  if (error) throw error;
-  return data.signedUrl;
+export async function getDocumentUrl(
+  tripId: string,
+  storagePath: string,
+  accessToken: string | undefined,
+): Promise<string> {
+  if (!accessToken) throw new Error("Please sign in before opening a document.");
+  const response = await fetch("/api/s3-presign", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ action: "download", tripId, storagePath }),
+  });
+  const signedDownload = await readDocumentApiJson(response);
+  if (!response.ok) throw new Error(signedDownload.error || "Could not open the S3 document.");
+  return signedDownload.downloadUrl;
 }
 
 export { keys as queryKeys };

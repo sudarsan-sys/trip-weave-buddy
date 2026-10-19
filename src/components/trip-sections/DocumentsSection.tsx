@@ -46,7 +46,8 @@ function getFileColor(contentType: string): string {
   if (contentType.startsWith("image/")) return "text-blue-500 bg-blue-50";
   if (contentType.includes("pdf")) return "text-red-500 bg-red-50";
   if (contentType.includes("word")) return "text-indigo-500 bg-indigo-50";
-  if (contentType.includes("sheet") || contentType.includes("excel")) return "text-emerald-500 bg-emerald-50";
+  if (contentType.includes("sheet") || contentType.includes("excel"))
+    return "text-emerald-500 bg-emerald-50";
   return "text-muted-foreground bg-secondary";
 }
 
@@ -69,7 +70,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
  * DocumentsSection — Upload to Supabase Storage
  * ============================================================ */
 export function DocumentsSection({ tripId }: { tripId: string }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { data: documents = [], isLoading } = useTripDocuments(tripId);
   const { data: members = [] } = useTripMembers(tripId);
   const uploadMutation = useUploadDocument(tripId);
@@ -127,7 +128,7 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
       if (file) uploadFile(file);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [],
   );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,7 +141,7 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
   const handleDownload = async (doc: TripDocument) => {
     setDownloadingId(doc.id);
     try {
-      const url = await getDocumentUrl(doc.storage_path);
+      const url = await getDocumentUrl(tripId, doc.storage_path, session?.access_token);
       window.open(url, "_blank");
     } catch (err) {
       console.error("Download failed:", err);
@@ -254,7 +255,8 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
             <div>
               <h3 className="font-display text-lg font-semibold leading-tight">Documents</h3>
               <p className="text-xs text-muted-foreground">
-                {documents.length} file{documents.length !== 1 ? "s" : ""} · Tickets, IDs, insurance — one place.
+                {documents.length} file{documents.length !== 1 ? "s" : ""} · Tickets, IDs, insurance
+                — one place.
               </p>
             </div>
           </div>
@@ -272,9 +274,7 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-secondary mb-4">
               <Files className="h-7 w-7 text-muted-foreground/40" />
             </div>
-            <p className="text-sm font-medium text-muted-foreground">
-              No documents yet
-            </p>
+            <p className="text-sm font-medium text-muted-foreground">No documents yet</p>
             <p className="mt-1 text-xs text-muted-foreground/70">
               Upload tickets, boarding passes, or insurance docs
             </p>
@@ -292,7 +292,9 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
                   className="flex items-center gap-4 px-6 py-4 hover:bg-secondary/30 transition group"
                 >
                   {/* File icon */}
-                  <div className={"grid h-10 w-10 place-items-center rounded-xl shrink-0 " + colorCls}>
+                  <div
+                    className={"grid h-10 w-10 place-items-center rounded-xl shrink-0 " + colorCls}
+                  >
                     <Icon className="h-5 w-5" />
                   </div>
 
