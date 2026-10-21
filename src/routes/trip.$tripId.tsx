@@ -9,6 +9,7 @@ import {
   useTripExpenses,
 } from "@/hooks/use-trip";
 import { Avatar } from "@/components/trip-sections";
+import { SyncButton } from "@/components/SyncButton";
 import { ChatSection } from "@/components/trip-sections/ChatSection";
 import { DocumentsSection } from "@/components/trip-sections/DocumentsSection";
 import { MembersSection } from "@/components/trip-sections/MembersSection";
@@ -175,7 +176,8 @@ function TripDashboard() {
               {daysToStart > 0 && ` · in ${daysToStart} days`}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <SyncButton />
             <div className="flex -space-x-2 hidden sm:flex">
               {membersList.slice(0, 5).map((m) => (
                 <div key={m.id} className="ring-2 ring-card rounded-full">

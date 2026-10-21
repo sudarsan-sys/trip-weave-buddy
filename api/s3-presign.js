@@ -1,3 +1,35 @@
+import {
+  S3Client,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const SIGNED_URL_TTL_SECONDS = 300;
+const allowedContentTypes = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "application/zip",
+]);
+
+const bodySchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("upload"),
+    tripId: z.string().uuid(),
+    fileName: z.string().min(1).max(255),
+    contentType: z.string().min(1).max(150),
     fileSize: z.number().int().positive().max(MAX_FILE_SIZE),
   }),
   z.object({

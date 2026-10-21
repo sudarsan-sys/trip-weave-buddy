@@ -55,7 +55,7 @@ export function ChatSection({ tripId }: { tripId: string }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<any>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   /* ── Auto-scroll to bottom ───────────────────────────────── */
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {

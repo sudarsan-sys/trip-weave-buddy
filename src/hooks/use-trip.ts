@@ -82,7 +82,7 @@ export function useMyInvitations() {
         .eq("status", "pending")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Invitation[];
+      return (data ?? []) as unknown as Invitation[];
     },
   });
 }
@@ -115,7 +115,7 @@ export function useTripMembers(tripId: string) {
         .select("id, trip_id, user_id, role, joined_at, profiles(id, username, display_name, avatar_url, created_at, updated_at)")
         .eq("trip_id", tripId);
       if (error) throw error;
-      return (data ?? []) as TripMember[];
+      return (data ?? []) as unknown as TripMember[];
     },
   });
 }
@@ -183,7 +183,7 @@ export function useTripMessages(tripId: string) {
         .eq("trip_id", tripId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as ChatMessage[];
+      return (data ?? []) as unknown as ChatMessage[];
     },
   });
 }
@@ -662,11 +662,45 @@ export function useJoinViaCode() {
 
 /** Get signed download URL for a document */
 export async function getDocumentUrl(storagePath: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from("trip-documents")
-    .createSignedUrl(storagePath, 3600); // 1hr
-  if (error) throw error;
-  return data.signedUrl;
+  if (storagePath.startsWith("http://") || storagePath.startsWith("https://")) {
+    return storagePath;
+  }
+
+  // 1. Try Supabase Storage first
+  try {
+    const { data, error } = await supabase.storage
+      .from("trip-documents")
+      .createSignedUrl(storagePath, 3600); // 1hr
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  } catch (supabaseErr) {
+    console.warn("Supabase download URL error:", supabaseErr);
+  }
+
+  // 2. Fallback to S3 presign API
+  try {
+    const session = (await supabase.auth.getSession()).data.session;
+    if (session?.access_token) {
+      const tripId = storagePath.split("/")[0];
+      const response = await fetch("/api/s3-presign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: "download", tripId, storagePath }),
+      });
+      if (response.ok) {
+        const json = await response.json();
+        if (json?.downloadUrl) return json.downloadUrl;
+      }
+    }
+  } catch (s3Err) {
+    console.warn("S3 fallback error:", s3Err);
+  }
+
+  throw new Error("Could not generate document download URL");
 }
 
 export { keys as queryKeys };

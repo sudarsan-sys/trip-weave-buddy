@@ -141,8 +141,15 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
   const handleDownload = async (doc: TripDocument) => {
     setDownloadingId(doc.id);
     try {
-      const url = await getDocumentUrl(tripId, doc.storage_path, session?.access_token);
-      window.open(url, "_blank");
+      const url = await getDocumentUrl(doc.storage_path);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = doc.file_name;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
       console.error("Download failed:", err);
     } finally {
@@ -312,7 +319,7 @@ export function DocumentsSection({ tripId }: { tripId: string }) {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => handleDownload(doc)}
                       disabled={downloadingId === doc.id}

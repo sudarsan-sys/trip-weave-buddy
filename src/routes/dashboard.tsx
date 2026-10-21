@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyTrips, useMyInvitations, useAcceptInvitation, useDeclineInvitation } from "@/hooks/use-trip";
+import { SyncButton } from "@/components/SyncButton";
 import {
   Plus,
   MapPin,
@@ -73,7 +74,8 @@ function DashboardPage() {
             </div>
             <span className="font-display text-xl font-semibold tracking-tight">TripOS</span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <SyncButton />
             <div className="text-right hidden sm:block">
               <div className="text-sm font-medium">{profile?.display_name || profile?.username}</div>
               <div className="text-xs text-muted-foreground">@{profile?.username}</div>
