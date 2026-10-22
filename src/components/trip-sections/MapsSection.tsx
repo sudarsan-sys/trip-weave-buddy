@@ -1,7 +1,26 @@
 import { useState, useEffect } from "react";
 import { useTrip } from "@/hooks/use-trip";
 import { useAuth } from "@/hooks/use-auth";
-import { Cloud, MapPin, Navigation, Sparkles, Loader2, Wind, Droplets } from "lucide-react";
+import { Cloud, MapPin, Navigation, Sparkles, Loader2, Wind, Droplets, ExternalLink, Globe } from "lucide-react";
+
+/* ============================================================
+ * Destination Sanitizer Helper
+ * Cleans queries like "japan2027" -> "Japan" or "paris_vacation" -> "Paris"
+ * so maps and weather APIs return direct 200 OK without failing.
+ * ============================================================ */
+export function cleanDestination(dest: string): string {
+  if (!dest) return "";
+  let clean = dest.trim().replace(/[_-]+/g, " ");
+  // Strip trailing years or embedded years (e.g. 2027 in japan2027)
+  clean = clean.replace(/(20\d\d)$/i, "").replace(/\b(20\d\d)\b/g, "");
+  // Strip common travel filler words
+  clean = clean.replace(/\b(trip|tour|vacation|holiday|visit|getaway)\b/gi, "").trim();
+  // Capitalize first letter if all lowercase
+  if (clean.length > 0 && clean === clean.toLowerCase()) {
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+  }
+  return clean || dest;
+}
 
 /* ============================================================
  * Weather Cache
@@ -19,14 +38,12 @@ async function fetchWeather(destination: string, token: string) {
   const apiKey = import.meta.env.VITE_SERPAPI_KEY;
   if (!apiKey) {
     console.warn("VITE_SERPAPI_KEY is not set in .env");
-    // We can still proceed if they want to rely entirely on the backend, 
-    // but the backend will fail without the key too. We pass it optionally if it exists.
   }
 
   const url = new URL("/api/serp", window.location.origin);
   url.searchParams.set("engine", "google");
   url.searchParams.set("q", `weather in ${destination}`);
-  url.searchParams.set("api_key", apiKey);
+  if (apiKey) url.searchParams.set("api_key", apiKey);
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -49,7 +66,8 @@ export function MapsSection({ tripId }: { tripId: string }) {
   const [weather, setWeather] = useState<any>(null);
   const [loadingWeather, setLoadingWeather] = useState(false);
 
-  const destination = trip?.destination || "";
+  const rawDestination = trip?.destination || "";
+  const destination = cleanDestination(rawDestination);
 
   useEffect(() => {
     if (!destination || !session?.access_token) return;
@@ -58,9 +76,9 @@ export function MapsSection({ tripId }: { tripId: string }) {
       .then(setWeather)
       .catch(console.error)
       .finally(() => setLoadingWeather(false));
-  }, [destination]);
+  }, [destination, session?.access_token]);
 
-  if (!destination) {
+  if (!rawDestination) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
         <MapPin className="mx-auto h-10 w-10 text-muted-foreground/40" />
@@ -71,29 +89,65 @@ export function MapsSection({ tripId }: { tripId: string }) {
   }
 
   const mapQuery = encodeURIComponent(destination);
-  // Free Google Maps iframe embed
-  const mapUrl = `https://maps.google.com/maps?q=${mapQuery}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
+  // Direct Google Maps embed URL (allowed by CSP frame-src)
+  const mapUrl = `https://www.google.com/maps?q=${mapQuery}&output=embed`;
   
-  // Directions links
+  // Directions links (opens natively in Google Maps app or web)
   const normalRoute = `https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`;
-  // dirflg=h means Avoid Highways -> typically leads to more scenic backroads
   const scenicRoute = `https://www.google.com/maps/dir/?api=1&destination=${mapQuery}&dirflg=h`;
+  const osmUrl = `https://www.openstreetmap.org/search?query=${mapQuery}`;
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
-      {/* Map Embed */}
+      {/* Map Embed & Actions */}
       <div className="lg:col-span-2 space-y-6">
-        <div className="rounded-2xl border border-border bg-card overflow-hidden h-[400px]">
-          <iframe
-            src={mapUrl}
-            width="100%"
-            height="100%"
-            style={{ border: 0 }}
-            allowFullScreen={false}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            title="Destination Map"
-          ></iframe>
+        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
+          {/* Header bar with location & external links */}
+          <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 bg-muted/30">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <MapPin className="h-4 w-4 text-primary" />
+              <span>{destination}</span>
+              {rawDestination !== destination && (
+                <span className="text-xs text-muted-foreground">({rawDestination})</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={normalRoute}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <span>Google Maps</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+              <span className="text-muted-foreground/40">•</span>
+              <a
+                href={osmUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                <span>OSM</span>
+                <Globe className="h-3 w-3" />
+              </a>
+            </div>
+          </div>
+
+          {/* Map Frame */}
+          <div className="relative h-[380px] w-full bg-muted/20">
+            <iframe
+              src={mapUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen={false}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title={`Map of ${destination}`}
+              className="h-full w-full"
+            />
+          </div>
         </div>
 
         {/* Routes */}
@@ -140,7 +194,7 @@ export function MapsSection({ tripId }: { tripId: string }) {
           {loadingWeather ? (
             <div className="mt-6 flex flex-col items-center justify-center py-6 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
-              <p className="text-sm">Fetching weather...</p>
+              <p className="text-sm">Fetching weather for {destination}...</p>
             </div>
           ) : weather ? (
             <div className="mt-6">
@@ -178,7 +232,7 @@ export function MapsSection({ tripId }: { tripId: string }) {
             </div>
           ) : (
             <div className="mt-6 text-sm text-muted-foreground">
-              Weather information is currently unavailable for this destination.
+              Weather information is currently unavailable for {destination}.
             </div>
           )}
         </div>
